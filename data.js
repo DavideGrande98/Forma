@@ -1,0 +1,215 @@
+'use strict';
+/* Forma — dati: alimenti, pasti proposti, libreria esercizi, schede pronte */
+
+// valori per 100 g (medie da tabelle nutrizionali; peso a crudo dove serve)
+const FOODS = {
+  avena:{n:'Fiocchi d\'avena',p:13,c:60,f:7},
+  pane:{n:'Pane integrale',p:9,c:43,f:3.5},
+  gallette:{n:'Gallette di riso',p:8,c:80,f:3},
+  pasta:{n:'Pasta integrale (cruda)',p:13,c:64,f:2.5},
+  riso:{n:'Riso basmati (crudo)',p:7,c:78,f:0.6},
+  farro:{n:'Farro (crudo)',p:15,c:67,f:2.5},
+  patate:{n:'Patate',p:2,c:17,f:0.1},
+  banana:{n:'Banana',p:1.1,c:20,f:0.3},
+  mela:{n:'Mela',p:0.3,c:14,f:0.2},
+  frutti:{n:'Frutti di bosco',p:1,c:10,f:0.3},
+  miele:{n:'Miele',p:0.3,c:82,f:0},
+  yogurt:{n:'Yogurt greco 0%',p:10,c:4,f:0},
+  fiocchi:{n:'Fiocchi di latte',p:12,c:3,f:4.5},
+  uova:{n:'Uova',p:12.5,c:0.7,f:10,unit:60,uname:['uovo','uova']},
+  albume:{n:'Albume',p:11,c:0.7,f:0.2},
+  pollo:{n:'Petto di pollo (crudo)',p:23,c:0,f:1.5},
+  tacchino:{n:'Fesa di tacchino (cruda)',p:24,c:0,f:1},
+  tonno:{n:'Tonno al naturale',p:25,c:0,f:1},
+  merluzzo:{n:'Merluzzo (crudo)',p:17,c:0,f:0.7},
+  salmone:{n:'Salmone (crudo)',p:20,c:0,f:13},
+  bresaola:{n:'Bresaola',p:32,c:0,f:2.6},
+  olio:{n:'Olio extravergine',p:0,c:0,f:100,oil:true},
+  mandorle:{n:'Mandorle',p:21,c:4,f:53},
+  arachidi:{n:'Burro d\'arachidi',p:25,c:15,f:50},
+  avocado:{n:'Avocado',p:2,c:2,f:15},
+  verdure:{n:'Verdure a scelta',p:2,c:5,f:0.3}
+};
+
+const MEALS = {
+  colazione:[
+    {n:'Yogurt, avena e frutti di bosco',c:'avena',p:'yogurt',f:'mandorle',fixed:[['frutti',100]]},
+    {n:'Pane integrale, uova e avocado',c:'pane',p:'uova',f:'avocado'},
+    {n:'Gallette, fiocchi di latte e burro d\'arachidi',c:'gallette',p:'fiocchi',f:'arachidi'}
+  ],
+  pranzo:[
+    {n:'Pasta integrale con pollo e verdure',c:'pasta',p:'pollo',f:'olio',veg:true},
+    {n:'Riso basmati con tonno e verdure',c:'riso',p:'tonno',f:'olio',veg:true},
+    {n:'Farro con tacchino e verdure',c:'farro',p:'tacchino',f:'olio',veg:true},
+    {n:'Patate con merluzzo e verdure',c:'patate',p:'merluzzo',f:'olio',veg:true}
+  ],
+  spuntino:[
+    {n:'Yogurt greco, mela e mandorle',c:'mela',p:'yogurt',f:'mandorle'},
+    {n:'Gallette, bresaola e mandorle',c:'gallette',p:'bresaola',f:'mandorle'}
+  ],
+  pre:[
+    {n:'Yogurt greco e banana',c:'banana',p:'yogurt',f:'mandorle'},
+    {n:'Pane integrale e bresaola',c:'pane',p:'bresaola',f:'olio'},
+    {n:'Gallette con miele e yogurt',c:'gallette',p:'yogurt',f:'arachidi',fixed:[['miele',15]]}
+  ],
+  cena:[
+    {n:'Salmone, patate e verdure',c:'patate',p:'salmone',f:'olio',veg:true},
+    {n:'Pollo, riso basmati e verdure',c:'riso',p:'pollo',f:'olio',veg:true},
+    {n:'Frittata di albumi, pane e verdure',c:'pane',p:'albume',f:'olio',veg:true,fixed:[['uova',60]]},
+    {n:'Pasta integrale al tonno e verdure',c:'pasta',p:'tonno',f:'olio',veg:true},
+    {n:'Merluzzo, farro e verdure',c:'farro',p:'merluzzo',f:'olio',veg:true}
+  ]
+};
+
+/* Libreria esercizi: g = gruppo, eq = attrezzo, bw = a corpo libero (conta le ripetizioni),
+   how = esecuzione, tip = errore da evitare, al = altri nomi (per riconoscerli nei PDF) */
+const EXLIB = [
+  // PETTO
+  {id:'panca', n:'Panca piana', g:'Petto', eq:'Bilanciere', al:['panca piana bilanciere','bench press','distensioni su panca piana','panca'],
+   how:['Sdraiati con occhi sotto il bilanciere, scapole strette e piedi ben piantati.','Scendi controllando fino a sfiorare il petto all\'altezza dei capezzoli.','Spingi verso l\'alto e leggermente indietro fino a braccia distese.'],
+   tip:'Non far rimbalzare il bilanciere sul petto e non staccare i glutei dalla panca.'},
+  {id:'panca_incl_man', n:'Panca inclinata con manubri', g:'Petto', eq:'Manubri', al:['panca inclinata 45 con manubri','distensioni 2 manubri panca 45','panca inclinata','incline press','distensioni inclinate manubri','spinte inclinate'],
+   how:['Schienale a 30–45°, manubri all\'altezza delle spalle.','Spingi in alto avvicinando i manubri senza farli sbattere.','Scendi lento fino a sentire l\'allungamento del petto.'],
+   tip:'Tieni i gomiti a circa 45° dal busto, non aperti a 90°.'},
+  {id:'distensioni_man', n:'Distensioni con manubri', g:'Petto', eq:'Manubri', al:['panca piana manubri','dumbbell press','spinte manubri panca piana'],
+   how:['Sdraiato su panca piana, manubri sopra il petto.','Scendi aprendo i gomiti a 45° fino a sentire allungamento.','Risali stringendo il petto.'],
+   tip:'Scendi solo fin dove le spalle restano stabili.'},
+  {id:'croci_cavi', n:'Croci ai cavi', g:'Petto', eq:'Cavi', al:['croci','cable fly','croci al cavo','chest fly','croci con manubri'],
+   how:['Pulegge alte, un passo avanti, busto leggermente inclinato.','Porta le mani davanti al petto con un arco ampio, gomiti appena flessi.','Torna indietro lentamente fino all\'allungamento.'],
+   tip:'I gomiti restano fissi: il movimento avviene solo dalle spalle.'},
+  {id:'pushup', n:'Piegamenti', g:'Petto', eq:'Corpo libero', bw:true, al:['push up','push-up','flessioni','piegamenti sulle braccia'],
+   how:['Mani poco più larghe delle spalle, corpo in linea da testa a talloni.','Scendi fino a portare il petto a pochi centimetri dal pavimento.','Spingi e torna su senza perdere la linea.'],
+   tip:'Non lasciare cadere il bacino: stringi addome e glutei.'},
+  {id:'dip', n:'Dip alle parallele', g:'Petto', eq:'Parallele', bw:true, al:['dips','dip','parallele'],
+   how:['Braccia tese sulle parallele, busto leggermente in avanti.','Scendi finché le spalle arrivano all\'altezza dei gomiti.','Spingi fino a distendere le braccia.'],
+   tip:'Se senti fastidio alle spalle, riduci la profondità.'},
+  // SCHIENA
+  {id:'trazioni', n:'Trazioni', g:'Schiena', eq:'Sbarra', bw:true, al:['trazioni alla sbarra','pull up','pull-up','chin up','trazioni assistite','trazioni (anche assistite)'],
+   how:['Presa poco più larga delle spalle, braccia tese.','Tira portando il petto verso la sbarra, gomiti verso i fianchi.','Scendi controllando fino a braccia distese.'],
+   tip:'Evita lo slancio con le gambe. Se non riesci, usa l\'elastico o la macchina assistita.'},
+  {id:'lat', n:'Lat machine', g:'Schiena', eq:'Macchina', al:['lat machine avanti in drop set','lat machine avanti','lat pulldown','pulldown','lat'],
+   how:['Cosce bloccate sotto i cuscinetti, presa larga.','Tira la barra verso la parte alta del petto portando i gomiti in basso.','Risali lentamente fino a braccia tese.'],
+   tip:'Non inclinarti troppo indietro e non tirare dietro la nuca.'},
+  {id:'rematore_bil', n:'Rematore con bilanciere', g:'Schiena', eq:'Bilanciere', al:['rematore bilanciere','barbell row','rematore'],
+   how:['Busto inclinato a circa 45°, schiena dritta, ginocchia morbide.','Tira il bilanciere verso l\'ombelico stringendo le scapole.','Scendi controllando senza arrotondare la schiena.'],
+   tip:'Il busto resta fermo: se oscilla, il carico è troppo alto.'},
+  {id:'rematore_man', n:'Rematore con manubrio', g:'Schiena', eq:'Manubri', al:['rematore manubrio','rematore con manubrio','dumbbell row','rematore a un braccio'],
+   how:['Mano e ginocchio in appoggio sulla panca, schiena piatta.','Tira il manubrio verso il fianco con il gomito vicino al corpo.','Scendi fino a braccio disteso.'],
+   tip:'Non ruotare il busto per tirare più su.'},
+  {id:'pulley', n:'Pulley basso', g:'Schiena', eq:'Cavi', al:['pulley basso presa stretta','pulley','seated row','rematore ai cavi','pulley basso presa stretta'],
+   how:['Seduto, piedi sulla pedana, busto eretto.','Tira la maniglia verso l\'addome portando indietro i gomiti.','Torna avanti allungando le braccia senza curvare la schiena.'],
+   tip:'Il busto non deve fare avanti e indietro.'},
+  {id:'stacco', n:'Stacco da terra', g:'Schiena', eq:'Bilanciere', al:['stacchi da terra','stacco','deadlift','stacco da terra classico'],
+   how:['Bilanciere sopra metà piede, presa appena fuori dalle gambe, schiena neutra.','Spingi il pavimento con le gambe e porta avanti le anche, bilanciere vicino al corpo.','Riporta giù spingendo le anche indietro.'],
+   tip:'Mai arrotondare la zona lombare. Meglio meno carico e schiena dritta.'},
+  {id:'facepull', n:'Face pull', g:'Spalle', eq:'Cavi', al:['face pull','facepull','tirate al viso'],
+   how:['Corda al cavo all\'altezza del viso.','Tira verso il viso aprendo le mani e portando i gomiti alti.','Torna controllando.'],
+   tip:'Carico leggero: conta la qualità, non i chili.'},
+  // SPALLE
+  {id:'lento', n:'Lento avanti', g:'Spalle', eq:'Bilanciere', al:['military press','lento avanti bilanciere','overhead press','shoulder press bilanciere'],
+   how:['In piedi, bilanciere sulle clavicole, glutei e addome contratti.','Spingi in alto sopra la testa portando la testa leggermente avanti.','Scendi controllando alle clavicole.'],
+   tip:'Non inarcare la schiena: se succede, il carico è troppo.'},
+  {id:'lento_man', n:'Distensioni spalle con manubri', g:'Spalle', eq:'Manubri', al:['lento avanti seduto con manubri','lento 2 manubri avanti seduto','lento avanti con manubri','lento manubri','shoulder press manubri','military manubri','spinte spalle manubri'],
+   how:['Seduto con schienale dritto, manubri all\'altezza delle orecchie.','Spingi in alto senza far toccare i manubri.','Scendi fino all\'altezza delle orecchie.'],
+   tip:'Tieni la schiena appoggiata allo schienale.'},
+  {id:'alzate_lat', n:'Alzate laterali', g:'Spalle', eq:'Manubri', al:['alzate laterali in stripping','alzate laterali manubri','lateral raise','alzate'],
+   how:['In piedi, manubri lungo i fianchi, gomiti appena flessi.','Solleva di lato fino all\'altezza delle spalle.','Scendi lentamente.'],
+   tip:'Niente slancio: meglio un peso più leggero e movimento pulito.'},
+  {id:'alzate_post', n:'Alzate posteriori', g:'Spalle', eq:'Manubri', al:['reverse fly','alzate a 90','deltoidi posteriori','croci inverse','reverse pec deck'],
+   how:['Busto inclinato in avanti, manubri sotto il petto.','Apri le braccia di lato stringendo la parte alta della schiena.','Torna giù controllando.'],
+   tip:'Non tirare con le braccia: pensa ad allargare i gomiti.'},
+  // GAMBE
+  {id:'squat', n:'Squat', g:'Gambe', eq:'Bilanciere', al:['back squat','squat bilanciere','squat con bilanciere'],
+   how:['Bilanciere sui trapezi, piedi larghezza spalle, punte leggermente aperte.','Scendi spingendo le anche indietro e le ginocchia in fuori, almeno fino a cosce parallele.','Risali spingendo con tutto il piede.'],
+   tip:'Ginocchia nella direzione delle punte, talloni sempre a terra.'},
+  {id:'goblet', n:'Goblet squat', g:'Gambe', eq:'Manubri', al:['goblet','squat con manubrio','squat goblet'],
+   how:['Tieni un manubrio al petto, piedi larghezza spalle.','Scendi tra le ginocchia tenendo il busto dritto.','Risali spingendo con i talloni.'],
+   tip:'Ottimo per imparare lo squat: tieni i gomiti dentro le ginocchia.'},
+  {id:'legpress', n:'Leg press', g:'Gambe', eq:'Macchina', al:['pressa','leg press 45','pressa 45'],
+   how:['Schiena ben appoggiata, piedi a metà pedana a larghezza spalle.','Scendi finché le ginocchia arrivano vicino al petto senza staccare il bacino.','Spingi senza bloccare del tutto le ginocchia.'],
+   tip:'Se il bacino si stacca dallo schienale, fermati prima.'},
+  {id:'affondi', n:'Affondi', g:'Gambe', eq:'Manubri', al:['affondi (per gamba)','lunges','affondi con manubri','affondi camminati'],
+   how:['Manubri lungo i fianchi, fai un passo lungo in avanti.','Scendi finché il ginocchio dietro sfiora il pavimento.','Spingi con la gamba avanti per tornare su.'],
+   tip:'Busto dritto e ginocchio avanti in linea con il piede.'},
+  {id:'bulgaro', n:'Squat bulgaro', g:'Gambe', eq:'Manubri', al:['affondi bulgari con manubri','affondi bulgari','bulgarian split squat','split squat','bulgaro'],
+   how:['Piede dietro appoggiato su una panca, manubri in mano.','Scendi dritto finché la coscia avanti è parallela.','Risali spingendo con il tallone della gamba avanti.'],
+   tip:'Trova la distanza giusta dalla panca prima di caricare.'},
+  {id:'rumeno', n:'Stacco rumeno', g:'Gambe', eq:'Bilanciere', al:['stacco a gambe semitese','stacchi a gambe semitese','romanian deadlift','rdl','stacco a gambe tese','stacco rumeno manubri'],
+   how:['In piedi, bilanciere davanti alle cosce, ginocchia morbide.','Porta le anche indietro facendo scendere il bilanciere lungo le gambe.','Fermati quando senti tirare i femorali e torna su spingendo avanti le anche.'],
+   tip:'La schiena resta dritta: non è un movimento di schiena ma di anche.'},
+  {id:'legext', n:'Leg extension', g:'Gambe', eq:'Macchina', al:['leg extension','estensioni gambe','quadricipiti macchina'],
+   how:['Seduto, cuscinetto sopra le caviglie.','Distendi le gambe contraendo i quadricipiti.','Scendi lentamente.'],
+   tip:'Non dare colpi: controlla anche la discesa.'},
+  {id:'legcurl', n:'Leg curl', g:'Gambe', eq:'Macchina', al:['leg curl','curl femorali','leg curl sdraiato','leg curl seduto'],
+   how:['Cuscinetto dietro le caviglie.','Piega le ginocchia portando i talloni verso i glutei.','Torna controllando.'],
+   tip:'Il bacino resta appoggiato alla macchina.'},
+  {id:'calf', n:'Calf raise', g:'Gambe', eq:'Macchina', al:['calf in piedi su rialzo','calf','polpacci','calf in piedi','calf seduto','sollevamenti sui polpacci'],
+   how:['Avampiede sul rialzo, talloni liberi.','Sali sulle punte più in alto possibile.','Scendi lentamente sotto il livello del rialzo.'],
+   tip:'Fermati un secondo in alto e uno in basso.'},
+  {id:'hipthrust', n:'Hip thrust', g:'Glutei', eq:'Bilanciere', al:['hip thrust','ponte glutei','glute bridge','hip thrust bilanciere'],
+   how:['Parte alta della schiena sulla panca, bilanciere sulle anche.','Spingi le anche in alto fino ad allinearle con busto e ginocchia.','Scendi controllando.'],
+   tip:'In alto stringi i glutei senza inarcare la schiena.'},
+  // BRACCIA
+  {id:'curl_bil', n:'Curl con bilanciere', g:'Braccia', eq:'Bilanciere', al:['bicipiti bilanciere','curl bilanciere','barbell curl','curl bicipiti bilanciere'],
+   how:['In piedi, presa a larghezza spalle, gomiti ai fianchi.','Piega i gomiti portando il bilanciere alle spalle.','Scendi fino a braccia distese.'],
+   tip:'Il busto non oscilla e i gomiti non vanno avanti.'},
+  {id:'curl_man', n:'Curl con manubri', g:'Braccia', eq:'Manubri', al:['curl alternato con manubri seduto','bicipiti 2 manubri alternato seduto','curl manubri','curl bicipiti','dumbbell curl','curl alternato'],
+   how:['Manubri lungo i fianchi, palmi avanti.','Piega i gomiti senza spostarli.','Scendi lentamente.'],
+   tip:'Niente slancio con la schiena.'},
+  {id:'curl_martello', n:'Curl a martello', g:'Braccia', eq:'Manubri', al:['hammer curl','curl martello'],
+   how:['Manubri con palmi rivolti verso il corpo.','Piega i gomiti mantenendo la presa neutra.','Scendi controllando.'],
+   tip:'Gomiti fermi lungo i fianchi.'},
+  {id:'pushdown', n:'Push-down tricipiti', g:'Braccia', eq:'Cavi', al:['push down','pushdown','tricipiti al cavo','spinte in basso','push-down'],
+   how:['Al cavo alto con barra o corda, gomiti ai fianchi.','Distendi le braccia verso il basso.','Risali fino a circa 90° senza spostare i gomiti.'],
+   tip:'Solo gli avambracci si muovono.'},
+  {id:'french', n:'French press', g:'Braccia', eq:'Bilanciere', al:['french press dietro la testa','french press bilanciere ez','french press','skull crusher','estensioni tricipiti'],
+   how:['Sdraiato, bilanciere EZ sopra il petto a braccia tese.','Piega i gomiti portando il bilanciere verso la fronte.','Distendi di nuovo le braccia.'],
+   tip:'I gomiti puntano al soffitto e non si aprono.'},
+  // CORE
+  {id:'plank', n:'Plank', g:'Core', eq:'Corpo libero', bw:true, al:['plank (secondi)','plank','tenuta addominale'],
+   how:['Avambracci a terra sotto le spalle, corpo in linea.','Stringi addome e glutei.','Mantieni la posizione per il tempo indicato (nelle ripetizioni scrivi i secondi).'],
+   tip:'Il bacino non deve scendere né salire.'},
+  {id:'crunch', n:'Crunch', g:'Core', eq:'Corpo libero', bw:true, al:['crunch','addominali','crunch a terra'],
+   how:['Sdraiato, ginocchia piegate, mani vicino alle tempie.','Solleva le spalle da terra arrotolando la parte alta della schiena.','Scendi lentamente.'],
+   tip:'Non tirare il collo con le mani.'},
+  {id:'legraise', n:'Sollevamento gambe', g:'Core', eq:'Corpo libero', bw:true, al:['crunch in sospensione alla sbarra','crunch inverso in sospensione','crunch in sospensione','leg raise','sollevamento gambe','gambe alla sbarra','hanging leg raise','crunch inverso'],
+   how:['Sdraiato o appeso alla sbarra, gambe distese.','Solleva le gambe portando il bacino verso l\'alto.','Scendi senza slancio.'],
+   tip:'Tieni la zona lombare aderente al pavimento se sei a terra.'},
+  {id:'crunch_cavo', n:'Crunch al cavo', g:'Core', eq:'Cavi', al:['crunch ai cavi','cable crunch','crunch al cavo'],
+   how:['In ginocchio davanti al cavo alto, corda dietro la testa.','Porta i gomiti verso le ginocchia arrotolando la schiena.','Risali controllando.'],
+   tip:'Il movimento è dell\'addome, non delle braccia.'},
+  {id:'side_plank', n:'Plank laterale', g:'Core', eq:'Corpo libero', bw:true, al:['side plank','plank laterale'],
+   how:['Su un fianco, avambraccio sotto la spalla.','Solleva il bacino fino ad allineare il corpo.','Mantieni per i secondi indicati, poi cambia lato.'],
+   tip:'Non lasciare cadere l\'anca.'},
+  {id:'kickback', n:'Kick back tricipiti', g:'Braccia', eq:'Manubri', al:['kick back con busto a 90','kick back','kickback'],
+   how:['Una mano e un ginocchio sulla panca, busto parallelo al pavimento, manubrio nell\'altra mano.','Porta il gomito vicino al fianco con il braccio parallelo al busto.','Distendi l\'avambraccio all\'indietro fino a braccio teso, poi torna piano.'],
+   tip:'Il gomito resta fermo in alto: si muove solo l\'avambraccio.'},
+  {id:'curl_panca', n:'Curl su panca inclinata', g:'Braccia', eq:'Manubri', al:['curl su panca 50 in drop set','curl panca inclinata','incline curl','curl p 50 sincrono'],
+   how:['Schienale a 45–50°, schiena appoggiata, braccia distese verso il basso.','Piega entrambi i gomiti insieme senza portarli avanti.','Scendi lentamente fino a braccia tese.'],
+   tip:'Non staccare la schiena dallo schienale per aiutarti.'},
+  {id:'rematore_panca', n:'Rematore su panca inclinata', g:'Schiena', eq:'Manubri', al:['rematore con manubri su panca 30','rematore 2 manubri su panca 30','chest supported row'],
+   how:['Petto appoggiato su una panca a 30°, un manubrio per mano.','Tira i manubri verso i fianchi stringendo le scapole.','Scendi controllando fino a braccia distese.'],
+   tip:'Il petto resta sempre appoggiato alla panca.'},
+  {id:'nordic', n:'Nordic hamstring curl', g:'Gambe', eq:'Corpo libero', bw:true, al:['nordic','ghr','ghr nordic hamstring','nordic curl','glute ham raise'],
+   how:['In ginocchio, talloni bloccati sotto un supporto o tenuti da un compagno.','Scendi in avanti il più lentamente possibile tenendo il corpo dritto da ginocchia a testa.','Quando non riesci più a frenare, appoggia le mani e spingi per tornare su.'],
+   tip:'Conta la discesa lenta: non piegarti ai fianchi.'},
+  {id:'jackknife', n:'Crunch a libro', g:'Core', eq:'Corpo libero', bw:true, al:['crunch a libro su panca','crunch a libro','v up','jackknife'],
+   how:['Seduto sul bordo della panca, mani dietro ai glutei, gambe distese in avanti.','Porta insieme ginocchia e petto piegandoti come un libro che si chiude.','Riapri lentamente senza appoggiare i piedi.'],
+   tip:'Espira mentre chiudi e non dare slancio.'}
+];
+const EXGROUPS = ['Petto','Schiena','Spalle','Gambe','Glutei','Braccia','Core'];
+
+const E = (name, sets, reps, rest) => ({name, sets, reps, rest});
+const PLANS = {
+  fullbody:{name:'Full body (A · B · C)', sessions:[
+    {name:'Full body A', ex:[E('Squat',4,'6-8',120),E('Panca piana',4,'6-8',120),E('Rematore con bilanciere',3,'8-10',90),E('Distensioni spalle con manubri',3,'10',90),E('Curl con manubri',2,'12',60),E('Plank',3,'40',45)]},
+    {name:'Full body B', ex:[E('Stacco rumeno',3,'8',120),E('Panca inclinata con manubri',3,'8-10',90),E('Lat machine',3,'10',90),E('Affondi',3,'10',90),E('Alzate laterali',3,'12-15',60),E('Crunch',3,'15',45)]},
+    {name:'Full body C', ex:[E('Leg press',4,'10',90),E('Distensioni con manubri',3,'10',90),E('Trazioni',3,'6-10',90),E('Hip thrust',3,'10',90),E('Push-down tricipiti',3,'12',60),E('Face pull',3,'15',60)]}
+  ]},
+  upperlower:{name:'Upper / Lower (4 sessioni)', sessions:[
+    {name:'Upper A', ex:[E('Panca piana',4,'6-8',120),E('Rematore con bilanciere',4,'8',90),E('Lento avanti',3,'8',90),E('Lat machine',3,'10',90),E('Curl con bilanciere',3,'12',60),E('Push-down tricipiti',3,'12',60)]},
+    {name:'Lower A', ex:[E('Squat',4,'6-8',120),E('Stacco rumeno',3,'8',120),E('Affondi',3,'10',90),E('Leg curl',3,'12',60),E('Calf raise',3,'15',45),E('Plank',3,'40',45)]},
+    {name:'Upper B', ex:[E('Panca inclinata con manubri',4,'8-10',90),E('Trazioni',4,'6-10',90),E('Distensioni spalle con manubri',3,'10',90),E('Pulley basso',3,'10-12',90),E('Alzate laterali',3,'15',60),E('Curl a martello',3,'12',60)]},
+    {name:'Lower B', ex:[E('Stacco da terra',3,'5',150),E('Leg press',4,'10',90),E('Hip thrust',3,'10',90),E('Leg curl',3,'12',60),E('Calf raise',3,'15',45),E('Crunch',3,'15',45)]}
+  ]}
+};
